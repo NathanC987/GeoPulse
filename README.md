@@ -48,9 +48,68 @@ Everything runs in Docker Compose:
 | `postgres` | Hive metastore DB + serving DB | `localhost:5433` (geopulse/geopulse) |
 | `dashboard` | Streamlit app | **http://localhost:8501** |
 
+## Setup on a new machine (Arch Linux / Omarchy)
+
+Spark, Kafka, Hive and Python all run in containers. The host only needs Docker, plus git, make, curl and
+python (python is used to unzip the downloads).
+
+**1. Prerequisites**
+
+```bash
+sudo pacman -S --needed git make curl python docker docker-compose docker-buildx
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER      # then log out and back in
+```
+
+Check:
+
+```bash
+docker info >/dev/null && echo docker ok
+docker compose version
+id -u            # should print 1000
+```
+
+* **User ID:** the images run as uid/gid 1000, so files written to `data/` stay owned by you. If `id -u` prints
+  something else, change `ARG UID=1000` / `ARG GID=1000` in `docker/spark/Dockerfile` and `docker/app/Dockerfile`
+  to your `id -u` / `id -g` before building.
+* **Resources:** about 16 GB of RAM, 8 or more CPU cores and about 5 GB of disk. On a smaller machine, reduce
+  `--cores 6 --memory 7g` for `spark-worker-1` and `spark-worker-2` in `docker-compose.yml`
+  (e.g. `--cores 4 --memory 4g`).
+* **Ports:** 8501, 8080, 8081, 4040, 4041, 4042, 5433, 9094 and 10000 must be free.
+
+**2. Clone, build, download, run**
+
+```bash
+git clone https://github.com/NathanC987/GeoPulse.git
+cd GeoPulse
+make build       # Spark + app images, first time only (~5-10 min)
+make data        # datasets into data/raw/ (237 MB)
+make demo        # services, batch layer, live stream (~10 min)
+# open http://localhost:8501
+```
+
+If the Foursquare server is down, `make data` says so. Download the dataset from Kaggle instead and put
+`dataset_TSMC2014_NYC.txt` and `dataset_TSMC2014_TKY.txt` in `data/raw/`.
+
+**3. Day to day**
+
+| Command | What it does |
+|---|---|
+| `make down` | Stop everything; data and batch results are kept |
+| `make up && make stream-reset stream replay` | Start again later without rerunning the batch layer |
+| `make stream-reset stream replay` | Restart the live replay from the beginning (e.g. before a presentation) |
+| `make clean` | Delete generated data (downloads are kept); `make demo` rebuilds it |
+
+**Troubleshooting**
+
+* `permission denied ... docker.sock`: log out and back in after `usermod -aG docker`.
+* `port is already allocated`: free that port, or change the host side of the mapping in `docker-compose.yml`.
+* Spark jobs stuck on "waiting for resources": the workers ask for more memory than the machine has; lower it as above.
+* The dashboard says "Batch results not found": run `make batch`, then reload the page.
+
 ## Quick start
 
-Requirements: Docker with Compose and about 12 GB of free RAM. Nothing else is installed on the host.
+Requirements: Docker with Compose and about 16 GB of RAM. Nothing else is installed on the host.
 
 ```bash
 make build     # build the Spark and app images (first time only)
