@@ -46,6 +46,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_NUM_PARTITIONS: 3
       KAFKA_LOG_RETENTION_HOURS: 24
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
     healthcheck:
       test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
       interval: 10s
@@ -67,6 +68,7 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: geopulse
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+      JAVA_OPTS: -Xmx256m
     depends_on:
       kafka: { condition: service_healthy }
 
@@ -99,7 +101,7 @@ services:
   spark-worker-1: &worker
     <<: *spark
     hostname: spark-worker-1
-    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker --cores 6 --memory 7g --work-dir /tmp/spark-work spark://spark-master:7077
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker --cores 4 --memory 4g --work-dir /tmp/spark-work spark://spark-master:7077
     depends_on: [spark-master]
 
   spark-worker-2:
@@ -111,7 +113,7 @@ services:
     <<: *spark
     hostname: spark-thrift
     command: >
-      /opt/spark/bin/spark-submit --master local[4] --driver-memory 3g
+      /opt/spark/bin/spark-submit --master local[4] --driver-memory 1g
       --name GeoPulse-HiveServer2
       --class org.apache.spark.sql.hive.thriftserver.HiveThriftServer2 spark-internal
     ports: ["10000:10000", "4041:4040"]
@@ -129,7 +131,7 @@ services:
     hostname: streamer
     profiles: ["stream"]
     command: >
-      submit --name GeoPulse-Streaming --conf spark.cores.max=4 --driver-memory 2g
+      submit --name GeoPulse-Streaming --conf spark.cores.max=2 --driver-memory 1g
       /opt/geopulse/app/streaming/stream_checkins.py
     ports: ["4042:4040"]
     restart: on-failure

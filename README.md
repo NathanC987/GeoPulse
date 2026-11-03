@@ -41,14 +41,14 @@ Everything runs in Docker Compose:
 | Service | Role | URL |
 |---|---|---|
 | `kafka` (+ `kafka-init`, `kafka-ui`) | Data capture: Apache Kafka 3.8 (KRaft), topic browser | Kafka UI http://localhost:8081 |
-| `spark-master`, `spark-worker-1/2` | Spark 3.5 standalone cluster (12 cores, 14 GB) | http://localhost:8080 |
+| `spark-master`, `spark-worker-1/2` | Spark 3.5 standalone cluster (2 workers, 8 cores, 8 GB) | http://localhost:8080 |
 | `spark-thrift` | HiveServer2-compatible endpoint over the Hive metastore | `jdbc:hive2://localhost:10000` |
 | `streamer` | Spark Structured Streaming job | Spark UI http://localhost:4042 |
 | `producer` | Kafka replay producer | – |
 | `postgres` | Hive metastore DB + serving DB | `localhost:5433` (geopulse/geopulse) |
 | `dashboard` | Streamlit app | **http://localhost:8501** |
 
-## Setup on a new machine (Arch Linux / Omarchy)
+## Setup on a new machine (Arch Linux)
 
 Spark, Kafka, Hive and Python all run in containers. The host only needs Docker, plus git, make, curl and
 python (python is used to unzip the downloads).
@@ -72,9 +72,12 @@ id -u            # should print 1000
 * **User ID:** the images run as uid/gid 1000, so files written to `data/` stay owned by you. If `id -u` prints
   something else, change `ARG UID=1000` / `ARG GID=1000` in `docker/spark/Dockerfile` and `docker/app/Dockerfile`
   to your `id -u` / `id -g` before building.
-* **Resources:** about 16 GB of RAM, 8 or more CPU cores and about 5 GB of disk. On a smaller machine, reduce
-  `--cores 6 --memory 7g` for `spark-worker-1` and `spark-worker-2` in `docker-compose.yml`
-  (e.g. `--cores 4 --memory 4g`).
+* **Resources:** a 16 GB laptop is enough; you also need 4 or more CPU cores and about 5 GB of disk. The
+  containers peak at about 10.4 GB during the one-time batch step (`make batch`, ~8 min) and use about 5.5 GB while
+  the live demo runs. Close the browser and other heavy apps while the batch step runs.
+  On a machine with 32 GB or more you can give Spark more room for faster batch runs: raise `--cores/--memory` of
+  `spark-worker-1/2` in `docker-compose.yml` and `spark.cores.max` / `spark.driver.memory` in
+  `docker/spark/spark-defaults.conf`, then `make build`.
 * **Ports:** 8501, 8080, 8081, 4040, 4041, 4042, 5433, 9094 and 10000 must be free.
 
 **2. Clone, build, download, run**
@@ -109,7 +112,7 @@ If the Foursquare server is down, `make data` says so. Download the dataset from
 
 ## Quick start
 
-Requirements: Docker with Compose and about 16 GB of RAM. Nothing else is installed on the host.
+Requirements: Docker with Compose and 16 GB of RAM. Nothing else is installed on the host.
 
 ```bash
 make build     # build the Spark and app images (first time only)
